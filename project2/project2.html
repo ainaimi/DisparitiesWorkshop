@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Project 2: Counterfactual Disparity Measure for Race, Income, and High Blood Pressure in the NHEFS</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="" />
+    <meta name="date" content="2023-03-13" />
+    <script src="libs/header-attrs-2.14/header-attrs.js"></script>
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+    <link rel="stylesheet" href="assets/css/aml-theme.css" type="text/css" />
+    <link rel="stylesheet" href="assets/css/aml-fonts.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+class: title-slide, left, bottom
+
+&lt;font size="50"&gt; Project 2: Counterfactual Disparity Measure for Race, Income, and High Blood Pressure in the NHEFS &lt;/font&gt; 
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+
+**Ashley I Naimi, PhD** &lt;br&gt; Associate Professor &lt;br&gt; Director of Graduate Studies &lt;br&gt; Dept of Epidemiology &lt;br&gt; Emory University &lt;br&gt;
+
+&lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M464 64H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V112c0-26.51-21.49-48-48-48zm0 48v40.805c-22.422 18.259-58.168 46.651-134.587 106.49-16.841 13.247-50.201 45.072-73.413 44.701-23.208.375-56.579-31.459-73.413-44.701C106.18 199.465 70.425 171.067 48 152.805V112h416zM48 400V214.398c22.914 18.251 55.409 43.862 104.938 82.646 21.857 17.205 60.134 55.186 103.062 54.955 42.717.231 80.509-37.199 103.053-54.947 49.528-38.783 82.032-64.401 104.947-82.653V400H48z"&gt;&lt;/path&gt;&lt;/svg&gt; &amp;nbsp; ashley.naimi@emory.edu 
+
+
+
+
+---
+# Overview
+
+.font150[
+
+Racial disparities in high blood pressure are well established. There are also know associations between race and income, and income and high blood pressure. We'd like to understand the extent to which racial disparities in high blood pressure are due to corresponding racial disparities in income.
+
+- How much of the racial disparity in high blood pressure is explained by income?
+
+- We'll use the NHEFS data, collected between 1971 and 1982, to answer this:
+
+  - Exposure: Race, measured as "black or other" versus "white"
+  - Mediator: Total Family Income (1971), measured categorically in increments of between $1,000 and $5,000, with a final category of $25,000+
+  - Outcome: High blood pressure, defined as systolic `\(\geq 140\)` AND diastolic `\(\geq 90\)`
+  - Confounders (income and HBP): marital status, age, and education
+
+]
+
+---
+# Overview
+
+.font150[
+
+- Three Phases - data management and exploration; analysis; interpretation
+
+- Seven steps
+
+  - Setup Project Folder
+  - Data Management and Exploration
+  - Import, Transform, Explore Raw Data
+  - Regression Analysis
+  - CDM Analysis
+  - Interpretation
+
+]
+
+---
+# Overview: The Data
+
+
+```
+## # A tibble: 6 × 6
+##   race  income marital   age school hbp  
+##   &lt;fct&gt;  &lt;dbl&gt; &lt;fct&gt;   &lt;dbl&gt;  &lt;dbl&gt; &lt;fct&gt;
+## 1 1         19 0          42      7 1    
+## 2 0         18 0          36      9 0    
+## 3 1         15 1          56     11 0    
+## 4 1         15 1          68      5 0    
+## 5 0         18 0          40     11 0    
+## 6 1         11 1          43      9 0
+```
+
+
+---
+class: middle, center
+
+.font200[
+
+Phase 1: Data Management and Exploration
+
+]
+
+---
+# Step 1: Construct a Project Folder
+
+.font150[
+
+- Create a folder called `Disparities_Project2`
+
+- Create Subfolders: `data`, `code`, `figures`, `misc`, `sandbox`, and `report`
+
+- Create an RStudio Project in the `Disparities_Project2` folder
+
+]
+
+---
+# Step 2: A Data Management and Exploration File
+
+.font150[
+
+- In the `code` subfolder, create two code files:
+
+  - `data_man.R`
+  - `main_analysis.R`
+
+- Open the `data_man.R` file and include the &lt;ins&gt;**preamble**&lt;/ins&gt; at the top:
+
+
+```r
+packages &lt;- c("data.table","tidyverse","skimr","here", "lmtest", "sandwich")
+
+for (package in packages) {
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package, repos='http://lib.stat.cmu.edu/R/CRAN')
+  }
+}
+
+for (package in packages) {
+  library(package, character.only=T)
+}
+```
+
+]
+
+---
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- Import the NHEFS into R. In this case, we will read the data directly from the web using the `url()` function:
+
+
+```r
+file_loc &lt;- url("https://cdn1.sph.harvard.edu/wp-content/uploads/sites/1268/1268/20/nhefs.csv")
+
+nhefs &lt;- read_csv(file_loc)
+```
+
+- Using the piping operator with tidyverse, complete the following data manipulations:
+
+  - `select()` the following columns from the source data: `race, income, marital, age, school, dbp, sbp`
+  - `mutate()` systolic and diastolic blood pressure into a measure of high blood pressure and convert it to a factor 
+  - `mutate()` race into a factor
+  - `mutate()` marital status into a binary variable (marital &gt; 2) and convert it to a factor
+  - remove `sbp` and `dbp` from the dataset
+  - omit any missing data using `na.omit()`
+
+]
+
+.font70[
+
+**Note**: whenever downloading data from the internet, consider saving a raw data file to your local computer/server. Otherwise, you may be jeopardizing the reproducibility of your results, should the original source data ever be removed or modified on the web.
+
+]
+
+---
+
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- explore the data you just imported using:
+
+  - the `head()` and/or `tail()` functions
+  - `skimr::skim()`
+  - `GGally::ggpairs()`
+  - `summary()`
+  - basic descriptives and table functions: `mean(), median(), sd(), table()`
+  - other
+
+]
+
+---
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- Conduct some basic regression modeling of the NHEFS data
+
+  - Look at the relationship between HBP and race, HBP and income, and race and income
+  - For the relationship between HBP and income, fit a logistic model with income coded as a continuous linear variable, a continuous variable with splines, and a categorical variable with three categories. 
+  - Base the categories on the histogram of income
+  - Create a dose-response plot with the fits from each of these three models
+  - Look at the relationship between race and income
+
+]
+
+---
+# Step 3: Import, Explore, and Transform Data
+
+- Once you're satisfied with the income thresholds, you're ready to export the data
+
+
+```
+## # A tibble: 6 × 7
+##    race income marital   age school   hbp income_cat
+##   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;     
+## 1     1     19       0    42      7     1 (17,20]   
+## 2     0     18       0    36      9     0 (17,20]   
+## 3     1     15       1    56     11     0 [11,17]   
+## 4     1     15       1    68      5     0 [11,17]   
+## 5     0     18       0    40     11     0 (17,20]   
+## 6     1     11       1    43      9     0 [11,17]
+```
+
+---
+# Step 4: Export the Data
+
+.font150[
+
+- Create a new data file called `nhefs_analytic_data.csv`
+
+- You should use the `write_csv()` function and the `here()` function to export to the `data` subfolder
+
+]
+
+---
+class: middle, center
+
+.font200[
+
+Phase 2: Analysis
+
+]
+
+---
+
+# Step 1: Set Up and Import
+
+.font150[
+
+- Open the `main_analysis.R` file and include the &lt;ins&gt;**preamble**&lt;/ins&gt; at the top. Add the `lmtest`, `sandwich`, and `VGAM` packages to the list.
+
+- Import the `nhefs_analytic_data.csv` data, and explore. For example: 
+
+
+```r
+head(a)
+tail(a)
+
+GGally::ggpairs(a[,c("c","y")])
+```
+
+]
+
+---
+
+# Step 2: Basic Regression
+
+.font150[
+
+- Fit an outcome model regressing `hbp` against all other variables in the data
+
+  - use a linear and logistic model to explore on the additive and multiplicative scales
+  - include an interaction between race and income
+
+- Fit a propensity score model for the three category income variable adjusting for `marital`, `age`, and `school`
+
+- You'll need to use the `vglm()` function from the `VGAM` package
+  - Use the `family = multinomial` argument
+
+]
+
+---
+
+# Step 2: Basic Regression
+
+.font150[
+
+- Generate a propensity score for the three category income variable*
+
+  - Create a PS overlap plot for income and save the figure using `ggsave()`
+  - Construct stabilized IP weights for the exposure and look at the distribution using `summary()`
+
+- Interpret these models, figures, and summaries
+
+]
+
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+
+\* We'll go over the code needed to generate propensity scores for categorical variables in depth.
+
+---
+
+# Step 3a: Exposure - Outcome Association
+
+.font150[
+
+a. Fit a marginally adjusted regression model (g computation) for the association between `hbp` and `race`. Use the bootstrap to obtain standard errors.
+
+  - Use this marginally adjusted approach to estimate the **risk difference** and the **risk ratio** for the association between race and high blood pressure.
+
+b. Create **two** indicator (dummy) variables for the three level income variable. Make the referent level `income` greater than level 20 (which makes the referent category an income of `\(\geq\)` $20,000)
+
+c. Fit a regression model for `hbp` regressed against `race`, the two indicators for `income`, `marital`, `age` and `school`. Conduct two likelihood ratio tests for the interactions between race and the income variables.
+
+]
+
+---
+
+# Step 3b: CDM, Structural Transformation
+
+.font150[
+
+a. Regress `hbp` against race, the two income indicators, the interaction between race and the indicator that income is between categories 11 and 17, as well as marital, age, and school. Use linear and log-linear models for risk differences and ratios.
+
+b. Extract the coefficients from these models for each income category and the interaction between race and income.
+
+c. Create transformed outcomes on the linear and log-linear scales
+
+$$ \tilde{Y} = Y - \hat{\beta} \times \text{income} - \hat{\beta} \times \text{income} \times \text{race}$$
+
+$$ \tilde{Y} = Y\times \exp(- \hat{\beta} \times \text{income} - \hat{\beta} \times \text{income} \times \text{race})$$
+
+d. Estimate the CDM using linear and log-linear models with the transformed outcomes
+
+e. Bootstrap to get standard errors
+
+]
+
+
+---
+
+# Step 3c: CDM, inverse probability weighting
+
+.font150[
+
+a. Regress `hbp` against race, the two income indicators, the interaction between race and the indicator that income is between categories 11 and 17. Weight this model with the stabilized IP weights constructed earlier.
+
+b. Estimate standard errors for the race coefficient from this model using the robust variance estimator.
+
+]
+
+---
+# Step 5: Combine the Results
+
+a. Combine all the results into a single table
+
+b. Export the table to a csv file
+
+---
+# Step 5: Combine the Results
+
+
+|          	                        |Estimate|Std Error  |LCL   |UCL  |
+|-----------------------------------|--------|-----------|------|-----|
+|ATE RD: Marginally Standardized	  | 0.10   | 0.03      |  0.04|	0.15|
+|CDM RD: Structural Transformation	| 0.05   | 0.04      | -0.02|	0.13|
+|CDM RD: IP Weighted	              | 0.07   | 0.05      | -0.03|	0.18|
+|-----------------------------------|--------|-----------|------|-----|
+|ATE RR: Marginally Standardized	  | 2.30   | 0.20      |  1.55|	3.41|
+|CDM RR: Structural Transformation	| 1.72   | 0.33      |  0.90|	3.32|
+|CDM RR: IP Weighted	              | 2.04   | 0.40      |  0.94|	4.44|
+
+---
+class: middle, center
+
+.font200[
+
+Phase 3: Interpretation
+
+]
+
+
+---
+# Step 6: Why are the CDMs different from the ATEs?
+
+
+|          	                     |mu1       |mu0      |
+|--------------------------------|----------|---------|
+| ATE: Marginally Standardized	 | 0.171    |	0.074   |
+| CDM: Structural Transformation | 0.128    |	0.075   |
+| CDM: IP Weighted	             | 0.168    |	0.068   |
+
+- For the structural transformation method, mu1 goes down but mu0 stays the same.
+  - Suggests having high income reduces risk of high blood pressure for "black or other"
+
+- For IP weighting, both mu1 and mu0 go down
+
+
+---
+# Step 7: Interpretation
+
+.font150[
+
+- The risk difference for the association between race and high blood pressure is 0.10 (95% CI: 0.04, 0.15). 
+
+- The risk difference that would be observed if everyone had an income of $20,000 (in 1971 dollars) or more is between 0.05 (95% CI: -0.02, 0.13; structural transformation) and 0.07 (95% CI: -0.03, 0.18; IP weighting).
+
+For every 100 people in the population, the "black or other" group had ten more cases of high blood pressure relative to the "white" group. Had everyone in the population had an income of $20,000 (in 1971 dollars) or more, the "black or other" group would have had 5 more cases of high blood pressure relative to the "white" group.
+
+- Exercise: write out a paragraph interpreting the risk ratios.
+
+]
+
+
+
+
+
+---
+class: middle, center
+
+.font200[
+
+Q&amp;A
+
+]
+
+---
+class: title-slide, left, bottom
+
+&lt;font size="50"&gt; Project 2: Counterfactual Disparity Measure for Race, Income, and High Blood Pressure in the NHEFS &lt;/font&gt; 
+
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+
+**Ashley I Naimi, PhD** &lt;br&gt; Associate Professor &lt;br&gt; Emory University &lt;br&gt;
+
+&lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M464 64H48C21.49 64 0 85.49 0 112v288c0 26.51 21.49 48 48 48h416c26.51 0 48-21.49 48-48V112c0-26.51-21.49-48-48-48zm0 48v40.805c-22.422 18.259-58.168 46.651-134.587 106.49-16.841 13.247-50.201 45.072-73.413 44.701-23.208.375-56.579-31.459-73.413-44.701C106.18 199.465 70.425 171.067 48 152.805V112h416zM48 400V214.398c22.914 18.251 55.409 43.862 104.938 82.646 21.857 17.205 60.134 55.186 103.062 54.955 42.717.231 80.509-37.199 103.053-54.947 49.528-38.783 82.032-64.401 104.947-82.653V400H48z"&gt;&lt;/path&gt;&lt;/svg&gt; &amp;nbsp; ashley.naimi@emory.edu &lt;br&gt; &lt;svg viewBox="0 0 496 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"&gt;&lt;/path&gt;&lt;/svg&gt; &amp;nbsp; ainaimi &lt;br&gt;
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "solarized-light",
+"highlightLanguage": "R",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

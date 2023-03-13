@@ -1,0 +1,168 @@
+---
+title: "Methods for Health Disparities Workshop: Some Preliminaries"
+subtitle:
+author:
+date: "`r Sys.Date()`"
+session: 01
+output:
+  xaringan::moon_reader:
+    css: ["default", "assets/css/aml-theme.css", "assets/css/aml-fonts.css"]
+    seal: false 
+    lib_dir: libs
+    nature:
+      # autoplay: 5000
+      highlightStyle: solarized-light
+      highlightLanguage: R
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+    includes:
+      in_header: [assets/header.html]
+params:
+  wifi_network: "rstudio20"
+  wifi_password: "tidyverse20"
+  site_link: "rstd.io/class"
+  cloud_link: "rstd.io/class"
+  github_link: "nyr-ml"
+editor_options: 
+  chunk_output_type: console
+---
+
+class: title-slide, left, bottom
+
+<font size="50"> Methods for Health Disparities Workshop: Some Preliminaries </font> 
+
+<br><br><br><br><br><br>
+
+**Ashley I Naimi, PhD** <br> Associate Professor <br> Director of Graduate Studies <br> Dept of Epidemiology <br> Emory University <br>
+
+`r icons::fontawesome("envelope")` &nbsp; ashley.naimi@emory.edu 
+
+
+```{r startup, include = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(sandwich)
+library(lmtest)
+library(glue)
+library(knitr)
+
+remotes::install_github("hadley/emo")
+
+thm <- theme_classic() +
+  theme(
+    legend.position = "top",
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.key = element_rect(fill = "transparent", colour = NA)
+  )
+theme_set(thm)
+
+options(digits = 3, width = 110)
+
+hexes <- function(x) {
+  x <- rev(sort(x))
+  bad_svg <- c("dplyr", "tidyr")
+  x <- ifelse(x %in% bad_svg, paste0(x, ".png"), paste0(x, ".svg"))
+  markup <- function(pkg) glue::glue('<img src="images/{pkg}" class="title-hex">')
+  res <- purrr::map_chr(x, markup)
+  paste0(res, collapse = "")
+}
+```
+
+---
+# Navigating the Day
+
+.font150[
+
+* Structure for Today
+
+* Project 1: Counterfactual Disparity Measures in a Simple Setting
+
+* Project 2: Counterfactual Disparity Measure in the NHEFS
+
+* Project 3: Counterfactual Disparity Measure in the NUMOM2b Study
+
+
+]
+
+---
+# Structure for Today
+
+.font150[
+
+* Starting at 8:30AM, wrapping up at 5:30PM
+  - Several breaks throughout
+
+* We'll start with a quick review
+
+* We will carry out three projects
+  - Each project will start with a brief "lecture style" overview with slides
+  - Next, we will split up into groups and start setting up project folders and code writing
+
+]
+
+---
+
+# Project Outline
+
+* Project 1 
+  - Simple setting with binary exposure, mediator, confounders, continuous outcome
+  - Will enable us to become familiar with overall scope of tasks
+
+* Project 2
+  - Counterfactual Disparity Measure in the NHEFS
+  - Binary exposure, binary outcome, three category mediator
+  - Confounders: binary, categorical, continuous
+  
+* Project 3: 
+  - Counterfactual Disparity Measure in the NUMOM2B Study
+  - More complex exposure and mediator
+
+---
+# Tools Covered
+
+.font150[
+
+* We will cover several concepts throughout the day:
+
+  - Data Import, and Wrangling
+  - Exploratory Analyses
+  - Regression Modeling
+  - Counterfactual Disparity Measures
+  - Bootstrapping
+  - Robust Variance Estimation
+
+* All of these will be covered through R code
+
+* This will be a heavily applied session
+
+]
+
+---
+# Goals
+
+.font150[
+
+- The end goal of each project will be to write two R programs:
+
+  - A data management file that yields an analytic dataset
+  - A main analysis file that yields a table of result 
+
+- These R programs should serve as your references and starting points in future work
+
+]
+
+
+
+
+
+---
+class: title-slide, left, bottom
+
+<font size="50"> Methods for Health Disparities Workshop: Some Preliminaries </font> 
+
+<br><br><br><br><br><br>
+
+**Ashley I Naimi, PhD** <br> Associate Professor <br> Emory University <br>
+
+`r icons::fontawesome("envelope")` &nbsp; ashley.naimi@emory.edu <br> `r icons::fontawesome("github")` &nbsp; ainaimi <br>
+
