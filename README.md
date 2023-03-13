@@ -20,6 +20,10 @@ for (package in packages) {
 }
 ```
 
+If you are unable to run this code, feel free to contact me before the session (via [Slack](https://join.slack.com/t/methodsforhea-ml54911/shared_invite/zt-1qyn4r0ti-KWA4mtj2jayIXkIEm5Cjwg) or [email](mailto:ashley.naimi@emory.edu))
+
+## Overview for the Workshop
+
 The three projects are increasingly complex. Starting with a simple simulated dataset with (mostly) binary variables, to a more complex setting with categorical exposures, mediators, and mixed type confounders. 
 
 The tools and concepts covered in this workshop will include:
