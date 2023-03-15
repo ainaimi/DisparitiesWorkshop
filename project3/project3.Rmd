@@ -1,0 +1,423 @@
+---
+title: "Project 3: Counterfactual Disparity Measure for Education, Smoking, and Preeclampsia in the NuMOM2b Study"
+subtitle:
+author:
+date: "`r Sys.Date()`"
+session: 01
+output:
+  xaringan::moon_reader:
+    css: ["default", "assets/css/aml-theme.css", "assets/css/aml-fonts.css"]
+    seal: false 
+    lib_dir: libs
+    nature:
+      # autoplay: 5000
+      highlightStyle: solarized-light
+      highlightLanguage: R
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+    includes:
+      in_header: [assets/header.html]
+params:
+  wifi_network: "rstudio20"
+  wifi_password: "tidyverse20"
+  site_link: "rstd.io/class"
+  cloud_link: "rstd.io/class"
+  github_link: "nyr-ml"
+editor_options: 
+  chunk_output_type: console
+---
+
+class: title-slide, left, bottom
+
+<font size="50"> Project 3: Counterfactual Disparity Measure for Education, Smoking, and Preeclampsia in the NuMOM2b Study </font> 
+
+<br><br><br><br><br><br>
+
+**Ashley I Naimi, PhD** <br> Associate Professor <br> Director of Graduate Studies <br> Dept of Epidemiology <br> Emory University <br>
+
+`r icons::fontawesome("envelope")` &nbsp; ashley.naimi@emory.edu 
+
+
+```{r startup, include = FALSE, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(sandwich)
+library(lmtest)
+library(glue)
+library(knitr)
+
+remotes::install_github("hadley/emo")
+
+thm <- theme_classic() +
+  theme(
+    legend.position = "top",
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.key = element_rect(fill = "transparent", colour = NA)
+  )
+theme_set(thm)
+
+options(digits = 3, width = 110)
+
+hexes <- function(x) {
+  x <- rev(sort(x))
+  bad_svg <- c("dplyr", "tidyr")
+  x <- ifelse(x %in% bad_svg, paste0(x, ".png"), paste0(x, ".svg"))
+  markup <- function(pkg) glue::glue('<img src="images/{pkg}" class="title-hex">')
+  res <- purrr::map_chr(x, markup)
+  paste0(res, collapse = "")
+}
+```
+
+---
+# Overview
+
+.font150[
+
+Preeclampsia is a serious adverse pregnancy outcome resulting from high blood pressure and protenuria. Preeclampsia can lead to both fetal and maternal death. There are known and strong associations between preeclampsia and pre-pregnancy smoking status. Ever smokers are at a much higher risk of preeclampsia compared to never smokers. Furthermore, compared to women with less than a high school education, any education is associated with a much lower risk of preeclampsia. Finally, smoking status is also associated with education, with higher smoking rates among individuals with lower levels of education. 
+
+As such, a natural question that arises is whether the educational disparity in preeclampsia would be reduced if we somehow prevented women from smoking. Alternatively, we can ask how much of the educational disparity in preeclampsia is due to smoking status?
+
+]
+
+---
+# Overview
+
+.font150[
+
+- We'll use a simulated dataset based on the NuMoM2b Study, a prospective observational cohort study of roughly 10,000 women experiencing their first pregnancy across the use. These data contain:
+
+  - Exposure: Education, measured categorically as less than HS grad, high school, assciates/tech degree, some college, completed college, and degree work beyond college.
+  - Mediator: Prepregnancy ever smoker
+  - Outcome: Preeclampsia
+  - Confounders: marital status, income, maternal age, pre pregnancy BMI, diet quality, physical activity, diabetes status, and hypertension status
+
+]
+
+---
+# Overview
+
+.font150[
+
+- Three Phases - data management and exploration; analysis; interpretation
+
+- Seven steps
+
+  - Setup Project Folder
+  - Data Management and Exploration
+  - Import, Transform, Explore Raw Data
+  - Regression Analysis
+  - CDM Analysis
+  - Interpretation
+
+]
+
+---
+# Overview: The Data
+
+```{r, warning = F, message = F, echo = F}
+
+a <- read_csv("./simulated_numom.csv")
+
+head(a)
+
+```
+
+.pull-left[
+```{r, warning = F, message = F, echo = F}
+a %>% count(education)
+```
+]
+
+.pull-right[
+```{r, warning = F, message = F, echo = F}
+a %>% count(pree_acog)
+
+a %>% count(as.numeric(cigsprepreg>0))
+```
+]
+
+---
+class: middle, center
+
+.font200[
+
+Phase 1: Data Management and Exploration
+
+]
+
+---
+# Step 1: Construct a Project Folder
+
+.font150[
+
+- Create a folder called `Disparities_Project3`
+
+- Create Subfolders: `data`, `code`, `figures`, `misc`, `sandbox`, and `report`
+
+- Create an RStudio Project in the `Disparities_Project3` folder
+
+]
+
+---
+# Step 2: A Data Management and Exploration File
+
+.font150[
+
+- In the `code` subfolder, create two code files:
+
+  - `data_man.R`
+  - `main_analysis.R`
+
+- Open the `data_man.R` file and include the <ins>**preamble**</ins> at the top:
+
+```{r, warning = F, message = F, eval = F}
+
+packages <- c("data.table","tidyverse","skimr","here", "lmtest", "sandwich")
+
+for (package in packages) {
+  if (!require(package, character.only=T, quietly=T)) {
+    install.packages(package, repos='http://lib.stat.cmu.edu/R/CRAN')
+  }
+}
+
+for (package in packages) {
+  library(package, character.only=T)
+}
+
+```
+
+]
+
+---
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- Use the `read_csv()` function to import the data. 
+
+- There is little need to transform variables in these data.
+
+- Conduct a basic exploratory analysis of the variables in the numom data.
+
+]
+
+---
+
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- explore the data you just imported using:
+
+  - the `head()` and/or `tail()` functions
+  - `skimr::skim()`
+  - `GGally::ggpairs()`
+  - `summary()`
+  - basic descriptives and table functions: `mean(), median(), sd(), table()`
+  - other
+
+]
+
+---
+# Step 3: Import, Explore, and Transform Data
+
+.font150[
+
+- Conduct some basic regression modeling of the numom data
+
+  - Look at the relationship between preeclampsia and education, preeclampsia and smoking, and education and smoking
+  - Examine a table or a histogram of the income variable. Can you determine what might be a useful threshold to dichotomize this variable?
+
+]
+
+---
+# Step 4: Export the Data
+
+- Create an analytic dataset with any transformed variables that you may use
+
+```{r, warning = F, message = F, eval = F}
+
+write_csv(here("data","analytic_numom.csv"))
+
+```
+
+---
+class: middle, center
+
+.font200[
+
+Phase 2: Analysis
+
+]
+
+---
+
+# Step 1: Set Up and Import
+
+.font150[
+
+- Open the `main_analysis.R` file and include the <ins>**preamble**</ins> at the top. Add the `lmtest`, `sandwich`, and the `VGAM` packages to the list.
+
+- Import the `analytic_numom.csv` data, and explore. For example: 
+
+```{r, warning = F, message = F, eval = F}
+
+head(a)
+tail(a)
+
+skimr::skim(a)
+
+```
+
+]
+
+---
+
+# Step 2: Basic Regression
+
+.font150[
+
+- Fit an outcome model regressing `pree_acog` against all other variables in the data
+
+- Fit a propensity score model for the categorical education variable adjusting for `momrace4` and `dadrace4`
+
+- You'll need to use the `vglm()` function from the `VGAM` package
+  - Use the `family = multinomial` argument
+
+- You should extend the code used in project 2 for the multicategory education variable
+
+]
+
+---
+
+# Step 2: Basic Regression
+
+.font150[
+
+- Generate a propensity score for the six category education variable
+
+  - Create a PS overlap plot for income and save the figure using `ggsave()`
+  - Construct stabilized IP weights for the exposure and look at the distribution using `summary()`
+
+- Interpret these models, figures, and summaries
+
+]
+
+
+---
+
+# Step 3a: Exposure - Outcome Association
+
+.font150[
+
+a. Fit a marginally adjusted regression model (g computation) for the association between `education` and `preeclampsia`. Use the bootstrap to obtain standard errors.
+
+  - Use this marginally adjusted approach to estimate the **risk difference** and the **risk ratio** for the association between education and preeclampsia. Contrast the risk that would be observed if everyone had some college, versus if everyone had less than high school.
+
+b. Create an indicator (dummy) variable for whether a woman smoked any cigarettes prior to pregnancy. Make the referent level "never smoker"
+
+c. Conduct a likelihood ratio test for the interaction between education and cigarette smoking, with preeclampsia as the outcome.
+
+]
+
+---
+
+# Step 3a: Exposure - Outcome Association
+
+.font150[
+
+a. Fit a regression model for `preeclampsia` regressed against  `education`. Weight this regression using the IP weights constructed with the `vglm` model in a previous step. 
+
+  - Fit the model using an identity link and a log link to obtain the **risk difference** and the **risk ratio** for the association between education and preeclampsia. Contrast the risk that would be observed if everyone had some college, versus if everyone had less than high school. 
+  - Use the robust variance estimator to obtain standard errors.
+
+]
+
+---
+
+# Step 3b & 3c: CDM, Structural Transformation and IP weighting
+
+.font150[
+
+Estimate the association between education and preeclampsia that would be observed if all women were never smokers. Use the structural transformation method and IP weighting. 
+
+]
+
+
+---
+
+# Step 5: Combine the Results
+
+a. Combine all the results into a single table
+
+b. Export the table to a csv file
+
+---
+# Step 5: Combine the Results
+
+
+|          	                        |Estimate|Std Error  |LCL   |UCL  |
+|-----------------------------------|--------|-----------|------|-----|
+|ATE RD: Marginally Standardized	  | -0.05  | 0.01      | -0.09|	-0.02|
+|ATE RD: IP Weighted            	  | -0.06  | 0.02      | -0.11|	-0.02|
+|CDM RD: Structural Transformation	| -0.12  | 0.03      | -0.19|	-0.06|
+|CDM RD: IP Weighted	              | -0.16  | 0.04      | -0.24|	-0.08|
+|-----------------------------------|--------|-----------|------|-----|
+|ATE RR: Marginally Standardized	  | 0.58   | 0.15      | 0.43 |	0.77|
+|ATE RR: IP Weighted            	  | 0.54   | 0.17      | 0.39 |	0.76|
+|CDM RR: Structural Transformation	| 0.38   | 0.83      | 0.07 |	1.93|
+|CDM RR: IP Weighted	              | 0.32   | 0.18      | 0.22 |	0.46|
+
+---
+class: middle, center
+
+.font200[
+
+Phase 3: Interpretation
+
+]
+
+
+---
+# Step 6: Why are the CDMs different from the ATEs?
+
+
+|          	                     |mu1       |mu0      |
+|--------------------------------|----------|---------|
+| ATE: Marginally Standardized	 | 0.074	  | 0.12   |
+| CDM: Structural Transformation | 0.041	 | 0.16   |
+| CDM: IP Weighted	             | 0.077	  | 0.21   |
+
+---
+# Step 7: Interpretation
+
+.font150[
+
+- Exercise: Interpret the risk differences and risk ratios for the ATEs and the CDMs in the Table above.
+
+]
+
+
+
+
+
+---
+class: middle, center
+
+.font200[
+
+Q&A
+
+]
+
+---
+class: title-slide, left, bottom
+
+<font size="50"> Project 2: Counterfactual Disparity Measure for Race, Income, and High Blood Pressure in the NHEFS </font> 
+
+<br><br><br><br><br><br>
+
+**Ashley I Naimi, PhD** <br> Associate Professor <br> Emory University <br>
+
+`r icons::fontawesome("envelope")` &nbsp; ashley.naimi@emory.edu <br> `r icons::fontawesome("github")` &nbsp; ainaimi <br>
+
